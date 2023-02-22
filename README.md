@@ -44,7 +44,13 @@
 
 - 스프링은 메시지 관리기능을 기본적으로 제공해줌, 또한 Spring boot 은 기본적인 설정도 다 되어있음 → 스프링부트를 쓰면 자동으로 `MessageSource` 를 빈으로 등록해줌
 - 설정 파일의 위치는 `/resources/messages.properties` 가 기본
-- 
+- 어떤 메시지 소스를 사용할지는 `application.properties` 에서 `spring.messages.basename=messages, config.i18n.message` 등으로 설정하면 됨
+    - 기본값은 `spring.messages.basename=messages` 이고, 생략해도 됨(디폴트라)
+    - 다른옵션은 [https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html#application-properties.core.spring.messages.basename](https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html#application-properties.core.spring.messages.basename) 참조
+
+### 스프링 메시지 소스 사용
+
+- (간단한 `MessageSource` 사용법 실습)
 
 ## 섹션 4. 검증1 - Validation
 
