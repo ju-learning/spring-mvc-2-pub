@@ -99,6 +99,94 @@
 
 - (기존 프로젝트를 남겨주고 싶어서, 기존의 v1 화면을 패키지 복사해서 v2 를 만드는 방법 가이드 내용)
 
+### BindingResult1
+
+- (v2 코드로 기존에 수작업으로 작성했던 에러 처리를 `BindingResult` 로 변경하는 실습)
+- BindingResult 는 굳이 모델에 안담아도 자동으로 View 로 전달됨
+- 주의) BindingResult 의 매개변수 위치는 반드시 `@ModelAttribute` 다음에 와야 정상적으로 인식함
+- 타임리프에서 사용할때는 `th:if="${#fields.hasGlobalErrors()}"` 이런식으로 사용하면 된다
+- 타임리프에서 검증오류를 표현하는 기능을 사용할 수 있도록 스프링과 통합되어있음 (e.g. BindingResult)
+- `th:errors` 는 `th:if` 의 편의버전이라고 생각하면 됨 (필드명과 그대로 에러가 있는지 없는지 확인하고, 있을때만 렌더링 됨)
+
+### BindingResult2
+
+- BindingResult 는 스프링이 제공하는 검증 오류를 보관하는 객체
+- BindingResult 가 있을때는 에러 자체가 BindingResult 에 담기기때문에 무조껀 에러를 담고  컨트롤러까지는 호출이 됨 (에러페이지로 넘어가지 않음) → BindingResult 가 없으면 에러에 담고 할곳이 없어서 일단 400으로 컨트롤러를 타지않고 일단 에러페이지를 던져버림
+- BindingResult 에 검증오류를 적용하는 3가지 방법
+    - 개발자가 수기로 넣어주기
+    - `Validator` 사용
+    - `@ModelAttribute` 객체의 타입오류 등으로 바인딩이 실패하면 자동으로 스프링이 BindingResult 에 해당 오류를 담아준다
+- 중요) 매개변수 순서가 중요함 → 반드시 ModelAttribute 바로 뒤에 와야함
+- `BindingResult` 는 결국 `Errors` 인터페이스의 확장 인터페이스기때문에 (추가적인 기능이 있음) 그래서 사실 뭘사용해도 상관은 없는데 관례상 BindingResult 를 많이 사용
+
+### FieldError, ObjectError
+
+- (사용자가 입력했을 때 데이터가 남아있어야 사용성이 좋으므로, 값이 남도록 유지하고, FieldError, ObjectError 에 대한 자세한 설명)
+- `bindingResult.addError(new FieldError()` 를 사용할 때 FieldError 에러 생성자를 중간에 `rejectedValue` 가 있는 생성자를 사용하면 됨
+- 스프링은 FieldError type error 등이 발생하면 자동으로 BindingResult 에 담아주고 그 후에 컨트롤러 로직을 실행함
+- 타임리프는 `th:field` 사용시 만약에 필드에 에러가 발생했다면, 기존의 값이 아닌 에러에서 발생한 `rejectedValue` 값을 담아준다 (ㄷㄷ;)
+
+### 오류 코드와 메시지 처리1
+
+- 기존의 `new FieldError()` 의 매개변수가 많은 생성자에서 `codes` 와 `arguments` 를 활용하면 에러 메시지를 효과적으로 사용할 수 있음
+- 스프링의 resources 폴더에 `errors.properties` 를 만들어서 쓸껀데, 스프링 기본은 messages.properties 만 읽어서 사용하므로, 설정에서 `spring.messages.basename=messages, errors` 로 추가해준다 (위에도 적었지만 안적어두면 messages 만 default 로 사용한다
+
+### 오류 코드와 메시지 처리2
+
+- FieldError 와 ObjectError 가 다루기가 너무 복잡함 (일일이 만들어줘야해서)
+- 근데 사실, BindingResult 는 항상 ModelAttribute 뒤에 와야하므로 BindingResult 는 항상 자신의 target 을 알고있음 (앞에있는 매개변수임)
+- BindingResult 의 `bindinResult.rejectValue()` 를 사용하면 좀더 효율적으로 기존의 `new Field()` 를 대체할 수 있다
+
+### 오류 코드와 메시지 처리3
+
+- 오류 코드를 만들 때는 `required.item.itemName` 처럼 자세하게도 할 수 있지만, `required` 라고 정의해서 범용성 있게 사용할 수도 있다 → 근데 매번 모든 메시지를 세세하게 설계할 수 없음
+- (중요) 에러 메시지는 배열로 들어가므로, 상위에러부터 범용메시지까지 모든 메시지 타입을 넣어주면 이후에 코드수정 없이 properties 만 수정해서 에러 메시지를 효율적으로 관리할 수 있음 → 스프링은 MessageCodesResolver 에서 이걸 다 구현 해놨음
+
+### 오류 코드와 메시지 처리4
+
+- 스프링의 `MessageCodesResolver codesResolver = new DefaultMessageCodesResolver();` 를 사용하면 이미 내부적으로(메소드로) 에러 하나만 넣으면 배열로 해당 타입의 모든 에러코드를 만들어준다.
+
+### 오류 코드와 메시지 처리5
+
+- 오류코드의 관리 전략은 “구체적인 것부터 덜구체적인것 순서로” 한다
+- 팁) 스프링에서 `ValidationUtils` 를 사용하면 기본적인 검증처리는 한줄로 처리할수도 있음
+
+### 오류 코드와 메시지 처리6
+
+- 검증 오류코드는 “개발자가 만든코드” 와 “스프링이 만든코드” 가 있음 → 스프링이 만든건 “타입체크” 등 이 있음
+- 그럼 스프링이 만든건 어떻게 해줘야 하나? → 스프링이 `typeMismatch` 를 넣어주므로, 우리가 errors.properties 에 추가해주면 된다
+- 중요한건 이해도와 왜 이렇게 설계됐는지를 파악하고, 다른걸 설계할 때 참고하는것 (인사이트를 얻는 것)
+
+### Validator 분리1
+
+- 지금 검증로직을 컨트롤러에 때려박아서 코드가 지저분하므로, 검증기(Validator) 와 원래 컨트롤러 로직으로 나누는게 좋음, 유지보수에도 좋음
+- 코드 자체는 `public class ItemValidator implements Validator { }` 로 확장해서 만들면 됨
+- 굳이 왜 Validator 를 쓰는가? → 스프링 인터페이스를 사용했으니 스프링이 해도록 수정 할 예정 (다음강의)
+
+### Validator 분리2
+
+- 스프링의 `Validator` 인터페이스를 사용하면 스프링의 추가적인 방법론들을 사용할 수 있음
+
+```java
+@InitBinder
+public void init(WebDataBinder dataBinder) {
+	dataBinder.addValidators(itemValidator);
+}
+```
+
+- 위 코드같이 컨트롤러에 적용해버리면, 요청이 넘어올 때 항상 먼저 검증기를 넣어줘서 바로 적용할 수 있게 됨
+- 이제 위에 `@InitBinder` 의 검증기를 사용하려면 `@ModelAttribute` 앞에 `@Validated` 를 적용해줘야함 → main 클래스에 글로벌로 설정해줄수도 있음
+- `@Validated` 어노테이션을 사용하면 “검증기를 사용하라”라는 뜻임
+- 검증할 때 `@Validated` 와 `@Valid` 둘다 사용할 수는 있음
+    - `@Validated` 는 스프링이고
+    - `@Valid` 는 자바임
+
+### 정리
+
+- 검증이 개념적으로 굉장히 중요함
+- (중요) 저장하는 검증이 실패하면 반드시 에러정보를 포함해서 다시 던져줘야 함
+- 에러 메시지는 구체적인것 → 범용적인것 순서로 작성하는 습관이 좋음
+
 ## 섹션 5. 검증2 - Bean Validation
 
 # 📋 메모
